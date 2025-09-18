@@ -34,7 +34,7 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
       Role: ${role}
       Difficulty: ${difficulty}
       Description: ${description}
-      Output format: JSON array with each item having 'question', 'options' (array of 4), and 'answer'.
+      Output format: JSON array with each item having 'question', 'options' (array of 4), and 'answer' and also don't generate questons with any code block.
     `;
   
     const response = await fetch(process.env.GEMINI_API_URL, {
