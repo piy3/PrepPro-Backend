@@ -1,5 +1,6 @@
 import express from 'express'
-import quizRoutes from './routes/quiz.route.js';
+import {quizRoutes} from './routes/quiz.routes.js';
+import {userRoutes} from './routes/user.routes.js';
 import dotenv from 'dotenv'
 
 dotenv.config()
@@ -15,6 +16,7 @@ app.use(express.json());
 
 //express routes
 app.use('/api/v1/quiz',quizRoutes)
+app.use('/api/v1/user',userRoutes)
 
 app.listen(port,()=>{
     console.log(`Server running on port ${port}`)

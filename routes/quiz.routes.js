@@ -5,4 +5,4 @@ const quizRoutes = Router();
 
 quizRoutes.route('/generate').post(generateQuiz)
 
-export default quizRoutes
+export  {quizRoutes}
