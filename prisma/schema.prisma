@@ -22,5 +22,47 @@ model User{
   refreshToken String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
+  // relations
+  quizAttempts QuizAttempt[]
+}
+
+
+model Quiz{
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  topic String
+  role String
+  difficulty String
+  description String?
+  questions   Question[]
+  answers  String[]
+  createdAt   DateTime      @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  attempts    QuizAttempt[]
+}
+
+//custom type
+type Question {
+  question String
+  options  String[]   // array of options
+}
+
+
+model QuizAttempt {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @db.ObjectId
+  quizId         String   @db.ObjectId
+
+  correctAnswers Int
+  timeTaken      Int        // seconds or ms
+  score          Float      // derived: correctAnswers / timeTaken
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  // relations
+  user  User @relation(fields: [userId], references: [id])
+  quiz  Quiz @relation(fields: [quizId], references: [id])
 }

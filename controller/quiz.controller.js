@@ -1,40 +1,67 @@
 import dotenv from 'dotenv'
+import {prisma} from "../utils/prismaClient.js"
 dotenv.config()
 
 const generateQuiz = async (req, res) => {
     try {
         const { topic, role, numberOfQuestions, difficulty, description } = req.body;
         if (!topic || !role || !numberOfQuestions || !difficulty) {
-            return res.status(400).json({ message: "All fields are required" })
+            return res.status(200).json({ message: "All fields are required" })
         }
         const quiz = await makeAIQuiz({ topic, role, numberOfQuestions, difficulty, description });
-
-        res.json({
-            topic,
-            role,
-            difficulty,
-            description,
-            questions: quiz.map(q => ({
-                question: q.question,
-                options: q.options
-            })),
-            answers: quiz.map(q => q.answer)
-        });
+        res.status(200).json(quiz)
+        // res.json({
+        //     topic,
+        //     role,
+        //     difficulty,
+        //     description,
+        //     questions: quiz.map(q => ({
+        //         question: q.question,
+        //         options: q.options
+        //     })),
+        //     answers: quiz.map(q => q.answer)
+        // });
     } catch (error) {
         console.log("quiz generation failed:",error)
-        res.status(500).json({ error: 'Failed to generate quiz' });
+        res.status(200).json({ error: 'Failed to generate quiz' });
     }
 
 }
 
-const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, description }) => {
+const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, description ,req,res}) => {
     const prompt = `
       Generate ${numberOfQuestions} quiz questions with 4 options and the correct answer.
       Topic: ${topic}
       Role: ${role}
       Difficulty: ${difficulty}
       Description: ${description}
-      Output format: JSON array with each item having 'question', 'options' (array of 4), and 'answer' and also don't generate questons with any code block.
+      Output format: JSON array with each item having 'question', 'options' (array of 4), and a seperate 'answers' array with answer of each question only stating the correct answer option number like  and also don't generate questons with any code block.Below is a output format:
+      {
+        "questions": [
+          {
+              "question": "What is the primary difference between null and undefined in JavaScript?",
+              "options": [
+                  "null is a primitive value that represents the intentional absence of any object value, while undefined indicates a variable has been declared but not assigned a value.",
+                  "undefined is a primitive value that represents the intentional absence of any object value, while null indicates a variable has been declared but not assigned a value.",
+                  "They are interchangeable and can be used in any context to represent the absence of a value.",
+                  "Both represent errors in the code and should be avoided."
+              ]
+          },
+          {
+              "question": "Which of the following array methods does *not* mutate the original array?",
+              "options": [
+                  ".push()",
+                  ".splice()",
+                  ".map()",
+                  ".sort()"
+              ]
+          }
+      ],
+      "answers": [
+          "1",
+          "3"
+      ]
+    }
     `;
   
     const response = await fetch(process.env.GEMINI_API_URL, {
@@ -51,12 +78,12 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
     });
   
     const data = await response.json();
-    console.log("DATA:", data);
+    // console.log("DATA:", data);
   
     try {
       // Handle Gemini API response format
       const generatedContent = data?.candidates?.[0]?.content;
-      console.log("GENERATED TEXT:", generatedContent);
+      
       
       // Extract the text from the response
       const generatedText = generatedContent?.parts?.[0]?.text || '';
@@ -64,7 +91,7 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
       if (!generatedText) {
         throw new Error('No generated text in response');
       }
-      
+      console.log("GENERated :",generatedText)
       // Clean the code block fences
       const jsonText = generatedText
         .replace(/^```json\s*/, '')  // Remove opening ```json
@@ -72,10 +99,32 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
         .trim();
   
       const quiz = JSON.parse(jsonText);
-      return quiz;
-    } catch (err) {
+      console.log("QUIZ:::", quiz)
+      //save the quiz to db 
+      const savedQuiz = await prisma.quiz.create({
+        data: {
+          topic,
+          role,
+          difficulty,
+          description,
+          questions: quiz.questions.map(q => ({
+            question: q.question,
+            options: q.options
+          })),
+          answers: quiz.answers
+        }
+      });
+      // console.log("SAVED QUIZ:",savedQuiz )
+      return savedQuiz
+    } 
+    catch (err) {
       console.error('Failed to parse AI response:', err);
-      throw new Error('AI response parsing error');
+      // return res.status(200).json({
+    //     success:false,
+    //     message:"Quiz not generated.Try Again!",
+    //     error:err.message
+    //   })
+    throw new Error(err.message)
     }
   };
 
