@@ -1,3 +1,5 @@
+.env config:
+
 PORT=5000
 
 GEMINI_API_URL = your api url
