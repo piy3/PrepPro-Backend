@@ -99,7 +99,7 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
         .trim();
   
       const quiz = JSON.parse(jsonText);
-      console.log("QUIZ:::", quiz)
+      // console.log("QUIZ:::", quiz)
       //save the quiz to db 
       const savedQuiz = await prisma.quiz.create({
         data: {
@@ -128,4 +128,35 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
     }
   };
 
-export  {generateQuiz}
+const getQuiz = async (req, res) => {
+  try{
+    const { cursor, limit = 10 } = req.query;
+
+    const quizzes = await prisma.quiz.findMany({
+      take: Number(limit),
+      skip: cursor ? 1 : 0, // skip cursor itself
+      cursor: cursor ? { id: cursor } : undefined,
+      orderBy: { createdAt: "desc" }
+    });
+
+    // Next cursor (id of last quiz in this batch)
+    const nextCursor = quizzes.length > 0 ? quizzes[quizzes.length - 1].id : null;
+
+    res.status(200).json({
+      data: quizzes,
+      nextCursor
+    });
+  }catch(err){
+    res.status(200).json({
+      success:false,
+      message:"Failed to fetch quizzes",
+      error:err.message
+    })
+    
+  }
+  
+
+}
+
+
+export  {generateQuiz,getQuiz}
