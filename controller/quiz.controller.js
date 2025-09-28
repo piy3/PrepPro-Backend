@@ -91,7 +91,7 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
       if (!generatedText) {
         throw new Error('No generated text in response');
       }
-      console.log("GENERated :",generatedText)
+      // console.log("GENERated :",generatedText)
       // Clean the code block fences
       const jsonText = generatedText
         .replace(/^```json\s*/, '')  // Remove opening ```json
@@ -107,14 +107,15 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
           role,
           difficulty,
           description,
-          questions: quiz.questions.map(q => ({
-            question: q.question,
-            options: q.options
-          })),
-          answers: quiz.answers
+          // questions: quiz.questions.map(q => ({
+          //   question: q.question,
+          //   options: q.options
+          // })),
+          // answers: quiz.answers
         }
       });
       // console.log("SAVED QUIZ:",savedQuiz )
+      // return {_id:savedQuiz.id,...savedQuiz}
       return savedQuiz
     } 
     catch (err) {
@@ -142,8 +143,39 @@ const getQuiz = async (req, res) => {
     // Next cursor (id of last quiz in this batch)
     const nextCursor = quizzes.length > 0 ? quizzes[quizzes.length - 1].id : null;
 
+    // Compute participants (distinct users) per quiz in this page using a single aggregation
+    const quizIds = quizzes.map(q => q.id);
+
+    let participantsByQuizId = {};
+    if (quizIds.length > 0) {
+      const raw = await prisma.quizAttempt.aggregateRaw({
+        pipeline: [
+          { $match: { quizId: { $in: quizIds.map(id => ({ $oid: id })) } } },
+          { $group: { _id: { quizId: "$quizId", userId: "$userId" } } }, // unique (quizId,userId)
+          { $group: { _id: "$_id.quizId", count: { $sum: 1 } } }
+        ]
+      });
+
+      // raw items look like: { _id: { $oid: "..." }, count: <number> }
+      participantsByQuizId = (raw || []).reduce((acc, doc) => {
+        const id = doc?._id?.$oid || "";
+        if (id) acc[id] = doc.count || 0;
+        return acc;
+      }, {});
+    }
+
+    const dataWithParticipants = quizzes.map(q => ({
+      id: q.id,
+      topic: q.topic,
+      role: q.role,
+      difficulty: q.difficulty,
+      description: q.description,
+      participants: participantsByQuizId[q.id] || 0,
+      duration: q.questions.length
+    }));
+
     res.status(200).json({
-      data: quizzes,
+      data: dataWithParticipants,
       nextCursor
     });
   }catch(err){
