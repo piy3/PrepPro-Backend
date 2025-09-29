@@ -52,7 +52,7 @@ type Question {
 
 model QuizAttempt {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId         String   @db.ObjectId
+  userId         String   @db.ObjectId 
   quizId         String   @db.ObjectId
 
   correctAnswers Int

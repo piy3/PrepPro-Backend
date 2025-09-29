@@ -1,35 +1,49 @@
-import dotenv from 'dotenv'
-import {prisma} from "../utils/prismaClient.js"
-dotenv.config()
+import dotenv from "dotenv";
+import { prisma } from "../utils/prismaClient.js";
+dotenv.config();
 
 const generateQuiz = async (req, res) => {
-    try {
-        const { topic, role, numberOfQuestions, difficulty, description } = req.body;
-        if (!topic || !role || !numberOfQuestions || !difficulty) {
-            return res.status(200).json({ message: "All fields are required" })
-        }
-        const quiz = await makeAIQuiz({ topic, role, numberOfQuestions, difficulty, description });
-        res.status(200).json(quiz)
-        // res.json({
-        //     topic,
-        //     role,
-        //     difficulty,
-        //     description,
-        //     questions: quiz.map(q => ({
-        //         question: q.question,
-        //         options: q.options
-        //     })),
-        //     answers: quiz.map(q => q.answer)
-        // });
-    } catch (error) {
-        console.log("quiz generation failed:",error)
-        res.status(200).json({ error: 'Failed to generate quiz' });
+  try {
+    const { topic, role, numberOfQuestions, difficulty, description } =
+      req.body;
+    if (!topic || !role || !numberOfQuestions || !difficulty) {
+      return res.status(200).json({ message: "All fields are required" });
     }
+    const quiz = await makeAIQuiz({
+      topic,
+      role,
+      numberOfQuestions,
+      difficulty,
+      description,
+    });
+    res.status(200).json(quiz);
+    // res.json({
+    //     topic,
+    //     role,
+    //     difficulty,
+    //     description,
+    //     questions: quiz.map(q => ({
+    //         question: q.question,
+    //         options: q.options
+    //     })),
+    //     answers: quiz.map(q => q.answer)
+    // });
+  } catch (error) {
+    console.log("quiz generation failed:", error);
+    res.status(200).json({ error: "Failed to generate quiz" });
+  }
+};
 
-}
-
-const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, description ,req,res}) => {
-    const prompt = `
+const makeAIQuiz = async ({
+  topic,
+  role,
+  numberOfQuestions,
+  difficulty,
+  description,
+  req,
+  res,
+}) => {
+  const prompt = `
       Generate ${numberOfQuestions} quiz questions with 4 options and the correct answer.
       Topic: ${topic}
       Role: ${role}
@@ -63,97 +77,95 @@ const makeAIQuiz = async ({ topic, role, numberOfQuestions, difficulty, descript
       ]
     }
     `;
-  
-    const response = await fetch(process.env.GEMINI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': process.env.GEMINI_API_KEY
+
+  const response = await fetch(process.env.GEMINI_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-goog-api-key": process.env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+    }),
+  });
+
+  const data = await response.json();
+  // console.log("DATA:", data);
+
+  try {
+    // Handle Gemini API response format
+    const generatedContent = data?.candidates?.[0]?.content;
+
+    // Extract the text from the response
+    const generatedText = generatedContent?.parts?.[0]?.text || "";
+
+    if (!generatedText) {
+      throw new Error("No generated text in response");
+    }
+    // console.log("GENERated :",generatedText)
+    // Clean the code block fences
+    const jsonText = generatedText
+      .replace(/^```json\s*/, "") // Remove opening ```json
+      .replace(/```$/, "") // Remove closing ```
+      .trim();
+
+    const quiz = JSON.parse(jsonText);
+    // console.log("QUIZ:::", quiz)
+    //save the quiz to db
+    const savedQuiz = await prisma.quiz.create({
+      data: {
+        topic,
+        role,
+        difficulty,
+        description,
+        // questions: quiz.questions.map(q => ({
+        //   question: q.question,
+        //   options: q.options
+        // })),
+        // answers: quiz.answers
       },
-      body: JSON.stringify({
-        contents: [
-          { parts: [{ text: prompt }] }
-        ]
-      })
     });
-  
-    const data = await response.json();
-    // console.log("DATA:", data);
-  
-    try {
-      // Handle Gemini API response format
-      const generatedContent = data?.candidates?.[0]?.content;
-      
-      
-      // Extract the text from the response
-      const generatedText = generatedContent?.parts?.[0]?.text || '';
-      
-      if (!generatedText) {
-        throw new Error('No generated text in response');
-      }
-      // console.log("GENERated :",generatedText)
-      // Clean the code block fences
-      const jsonText = generatedText
-        .replace(/^```json\s*/, '')  // Remove opening ```json
-        .replace(/```$/, '')         // Remove closing ```
-        .trim();
-  
-      const quiz = JSON.parse(jsonText);
-      // console.log("QUIZ:::", quiz)
-      //save the quiz to db 
-      const savedQuiz = await prisma.quiz.create({
-        data: {
-          topic,
-          role,
-          difficulty,
-          description,
-          // questions: quiz.questions.map(q => ({
-          //   question: q.question,
-          //   options: q.options
-          // })),
-          // answers: quiz.answers
-        }
-      });
-      // console.log("SAVED QUIZ:",savedQuiz )
-      // return {_id:savedQuiz.id,...savedQuiz}
-      return savedQuiz
-    } 
-    catch (err) {
-      console.error('Failed to parse AI response:', err);
-      // return res.status(200).json({
+    // console.log("SAVED QUIZ:",savedQuiz )
+    // return {_id:savedQuiz.id,...savedQuiz}
+    return savedQuiz;
+  } catch (err) {
+    console.error("Failed to parse AI response:", err);
+    // return res.status(200).json({
     //     success:false,
     //     message:"Quiz not generated.Try Again!",
     //     error:err.message
     //   })
-    throw new Error(err.message)
-    }
-  };
+    throw new Error(err.message);
+  }
+};
 
+//to get all quizzes
 const getQuiz = async (req, res) => {
-  try{
+  try {
     const { cursor, limit = 10 } = req.query;
 
     const quizzes = await prisma.quiz.findMany({
       take: Number(limit),
       skip: cursor ? 1 : 0, // skip cursor itself
       cursor: cursor ? { id: cursor } : undefined,
-      orderBy: { createdAt: "desc" }
+      orderBy: { createdAt: "desc" },
     });
 
     // Next cursor (id of last quiz in this batch)
-    const nextCursor = quizzes.length > 0 ? quizzes[quizzes.length - 1].id : null;
+    const nextCursor =
+      quizzes.length > 0 ? quizzes[quizzes.length - 1].id : null;
 
     // Compute participants (distinct users) per quiz in this page using a single aggregation
-    const quizIds = quizzes.map(q => q.id);
+    const quizIds = quizzes.map((q) => q.id);
 
     let participantsByQuizId = {};
     if (quizIds.length > 0) {
       const raw = await prisma.quizAttempt.aggregateRaw({
         pipeline: [
-          { $match: { quizId: { $in: quizIds.map(id => ({ $oid: id })) } } },
+          { $match: { quizId: { $in: quizIds.map((id) => ({ $oid: id })) } } },
           { $group: { _id: { quizId: "$quizId", userId: "$userId" } } }, // unique (quizId,userId)
-          { $group: { _id: "$_id.quizId", count: { $sum: 1 } } }
-        ]
+          { $group: { _id: "$_id.quizId", count: { $sum: 1 } } },
+        ],
       });
 
       // raw items look like: { _id: { $oid: "..." }, count: <number> }
@@ -164,31 +176,104 @@ const getQuiz = async (req, res) => {
       }, {});
     }
 
-    const dataWithParticipants = quizzes.map(q => ({
+    const dataWithParticipants = quizzes.map((q) => ({
       id: q.id,
       topic: q.topic,
       role: q.role,
       difficulty: q.difficulty,
       description: q.description,
       participants: participantsByQuizId[q.id] || 0,
-      duration: q.questions.length
+      duration: q.questions.length,
     }));
 
     res.status(200).json({
       data: dataWithParticipants,
-      nextCursor
+      nextCursor,
     });
-  }catch(err){
+  } catch (err) {
     res.status(200).json({
-      success:false,
-      message:"Failed to fetch quizzes",
-      error:err.message
-    })
-    
+      success: false,
+      message: "Failed to fetch quizzes",
+      error: err.message,
+    });
   }
-  
+};
 
-}
+//to get current quiz
+const getCurrentQuiz = async (req, res) => {
+  try {
+    const { quizId } = req.params;
+    if (!quizId) {
+      return res.status(200).json({ message: "Quiz ID is required" });
+    }
+    const quiz = await prisma.quiz.findUnique({
+      where: { id: quizId },
+    });
+    if (!quiz) {
+      return res.status(200).json({ message: "Quiz not found" });
+    }
+    res.status(200).json(quiz);
+  } catch (error) {
+    console.log("getCurrentQuiz error:", error);
+    res.status(200).json({ error: "Failed to fetch quiz" });
+  }
+};
 
+const submitQuiz = async (req, res) => {
+  const quizId = req.params.quizId;
+  const { answers, timeTaken } = req.body;
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(200).json({
+      success: false,
+      message: "User not authenticated",
+    });
+  }
+  if (!quizId || !answers) {
+    return res.status(200).json({
+      success: false,
+      message: "All fields are required",
+    });
+  }
+  const getQuiz = await prisma.quiz.findUnique({
+    where: { id: quizId },
+  });
+  if (!getQuiz) {
+    return res.status(200).json({
+      success: false,
+      message: "Quiz not found",
+    });
+  }
+  //calculate score
+  let score = 0;
+  let correctAns = 0;
+  getQuiz.answers.forEach((ans, index) => {
+    // Convert answers object to array format or compare directly with object keys
+    const userAnswer = answers[index.toString()]; // answers comes as {"0": 4, "1": 2, ...}
+    console.log(userAnswer)
+    if (ans === (userAnswer + 1).toString()) {
+      score += 1;
+    }
+  });
+  correctAns = score;
+  console.log(correctAns);
+  score = (score / timeTaken) * 100; // score in percentage
+  //save the attempt
+  const attempt = await prisma.quizAttempt.create({
+    data: {
+      userId,
+      quizId,
+      correctAnswers: correctAns,
+      score,
+      timeTaken,
+    },
+  });
+  return res.status(200).json({
+    success: true,
+    message: "Quiz submitted successfully",
+    attempt,
+    quiz:getQuiz
+  });
+};
 
-export  {generateQuiz,getQuiz}
+export { generateQuiz, getQuiz, getCurrentQuiz, submitQuiz };
