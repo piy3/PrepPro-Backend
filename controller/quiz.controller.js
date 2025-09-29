@@ -259,21 +259,31 @@ const submitQuiz = async (req, res) => {
   console.log(correctAns);
   score = (score / timeTaken) * 100; // score in percentage
   //save the attempt
-  const attempt = await prisma.quizAttempt.create({
-    data: {
-      userId,
-      quizId,
-      correctAnswers: correctAns,
-      score,
-      timeTaken,
-    },
-  });
-  return res.status(200).json({
-    success: true,
-    message: "Quiz submitted successfully",
-    attempt,
-    quiz:getQuiz
-  });
+  try{
+    const attempt = await prisma.quizAttempt.create({
+        data: {
+          userId,
+          quizId,
+          correctAnswers: correctAns,
+          score,
+          timeTaken,
+        },
+      });
+      return res.status(200).json({
+        success: true,
+        message: "Quiz submitted successfully",
+        attempt,
+        quiz:getQuiz
+      });
+  }catch(err){
+    console.log("submitQuiz error:", err);
+    res.status(200).json({
+      success: false,
+      message: "Failed to submit quiz",
+      error: err.message,
+    });
+  }
+  
 };
 
 export { generateQuiz, getQuiz, getCurrentQuiz, submitQuiz };
