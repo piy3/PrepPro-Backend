@@ -219,6 +219,26 @@ const getCurrentQuiz = async (req, res) => {
   }
 };
 
+const getQuizAttempts = async (req, res) => {
+   try {
+    const { quizId } = req.params;
+    if (!quizId) {
+      return res.status(200).json({ message: "Quiz ID is required" });
+    }
+
+    const attempts = await prisma.quizAttempt.findMany({
+      where: { quizId },
+      include: { user: { select: { id: true, fullname: true } } },
+      orderBy:{score:"desc"}
+    });
+
+    res.status(200).json(attempts);
+  } catch (error) {
+    console.log("getQuizAttempts error:", error);
+    res.status(200).json({ error: "Failed to fetch quiz attempts" });
+  }
+};
+
 const submitQuiz = async (req, res) => {
   const quizId = req.params.quizId;
   const { answers, timeTaken } = req.body;
@@ -286,4 +306,4 @@ const submitQuiz = async (req, res) => {
   
 };
 
-export { generateQuiz, getQuiz, getCurrentQuiz, submitQuiz };
+export { generateQuiz, getQuiz, getCurrentQuiz,getQuizAttempts, submitQuiz };
