@@ -18,4 +18,6 @@ NODE_ENV = "dev"
 
 DEV_ORIGIN = http://localhost:3000
 
+PROD_ORIGIN=https://deployed_frontend_url.vercel.app
+
 DATABASE_URL = your db url
