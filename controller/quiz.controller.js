@@ -95,10 +95,10 @@ const makeAIQuiz = async ({
   try {
     // Handle Gemini API response format
     const generatedContent = data?.candidates?.[0]?.content;
-
+    // console.log("Generated Content:", generatedContent);
     // Extract the text from the response
     const generatedText = generatedContent?.parts?.[0]?.text || "";
-
+    // console.log("Generated Text:", generatedText);
     if (!generatedText) {
       throw new Error("No generated text in response");
     }
@@ -118,11 +118,11 @@ const makeAIQuiz = async ({
         role,
         difficulty,
         description,
-        // questions: quiz.questions.map(q => ({
-        //   question: q.question,
-        //   options: q.options
-        // })),
-        // answers: quiz.answers
+        questions: quiz.questions.map(q => ({
+          question: q.question,
+          options: q.options
+        })),
+        answers: quiz.answers
       },
     });
     // console.log("SAVED QUIZ:",savedQuiz )
