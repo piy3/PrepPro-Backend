@@ -111,7 +111,7 @@ const loginUser = async(req,res)=>{
         const options = {
             httpOnly:true,
             secure:true,
-            sameSite:"strict"
+            sameSite:"None"
         }
         res.cookie("accessToken",accessToken,options)
         res.cookie("refreshToken",refreshToken,options)

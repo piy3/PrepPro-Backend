@@ -10,7 +10,7 @@ dotenv.config()
 const app = express()
 const port = process.env.PORT 
 
-const isProd = process.env.NODE_ENV === 'production';
+const isProd = process.env.NODE_ENV === "production";
 const origin = isProd ? process.env.PROD_ORIGIN : process.env.DEV_ORIGIN;
 
 app.use(cors({ 
